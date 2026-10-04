@@ -6,12 +6,12 @@
   <a href="https://modelcontextprotocol.io/"><img src="https://img.shields.io/badge/MCP-compatible-6366f1.svg" alt="MCP" /></a>
   <a href="https://www.chromadb.dev/"><img src="https://img.shields.io/badge/ChromaDB-embedded-ffb000.svg" alt="ChromaDB" /></a>
   <a href="https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2"><img src="https://img.shields.io/badge/embeddings-all--MiniLM--L6--v2-ff6f61.svg" alt="Embeddings" /></a>
-  <a href="https://github.com/codependentai/resonant-archive/releases/latest"><img src="https://img.shields.io/github/v/release/codependentai/resonant-archive?color=5eaba5" alt="Release" /></a>
+  <a href="https://github.com/nekyialabs/resonant-archive/releases/latest"><img src="https://img.shields.io/github/v/release/codependentai/resonant-archive?color=5eaba5" alt="Release" /></a>
 </p>
 
 <p align="center"><em>Local-first semantic search for your ChatGPT, Claude, and AI conversation history.<br/>Python CLI + MCP server. No API keys. Nothing leaves your machine.</em></p>
 
-<p align="center"><em>Part of the <a href="https://github.com/codependentai/resonant">Resonant</a> ecosystem — the long-term searchable archive that pairs with active AI memory.</em></p>
+<p align="center"><em>Part of the <a href="https://github.com/nekyialabs/resonant">Resonant</a> ecosystem — the long-term searchable archive that pairs with active AI memory.</em></p>
 
 <p align="center">
   <a href="https://ko-fi.com/codependentai"><img src="https://img.shields.io/badge/Ko--fi-Support%20Us-ff5e5b?logo=ko-fi&logoColor=white" alt="Ko-fi" /></a>
@@ -180,7 +180,7 @@ The daemon runs persistently with the embedding model loaded. The MCP server is 
 
 ## Relationship to Resonant Mind
 
-`resonant-archive` is an optional companion to [Resonant Mind](https://github.com/codependentai/resonant-mind), not a required dependency. They communicate via MCP (separate processes) and neither depends on the other.
+`resonant-archive` is an optional companion to [Resonant Mind](https://github.com/nekyialabs/resonant-mind), not a required dependency. They communicate via MCP (separate processes) and neither depends on the other.
 
 Use resonant-archive to give an AI companion access to its long-term history without burning cloud tokens. Use Resonant Mind for active memory, identity, and ongoing cognitive state.
 

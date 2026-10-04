@@ -42,5 +42,5 @@ Initial public release. Modernized from an earlier internal tool (`vault-archive
 
 [Codependent AI Source-Available License](LICENSE) — free for personal, educational, and non-commercial use with attribution. Commercial use requires a license.
 
-[Unreleased]: https://github.com/codependentai/resonant-archive/compare/v0.1.0...HEAD
-[0.1.0]: https://github.com/codependentai/resonant-archive/releases/tag/v0.1.0
+[Unreleased]: https://github.com/nekyialabs/resonant-archive/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/nekyialabs/resonant-archive/releases/tag/v0.1.0

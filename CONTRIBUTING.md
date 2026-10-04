@@ -4,9 +4,9 @@ Thanks for your interest in contributing. `resonant-archive` is a small, focused
 
 ## How to reach us
 
-- **Bug reports** — [GitHub Issues](https://github.com/codependentai/resonant-archive/issues)
-- **Feature proposals** — [GitHub Issues](https://github.com/codependentai/resonant-archive/issues) (open an issue before writing code for anything non-trivial)
-- **Questions & discussion** — [GitHub Discussions](https://github.com/codependentai/resonant-archive/discussions) (if enabled)
+- **Bug reports** — [GitHub Issues](https://github.com/nekyialabs/resonant-archive/issues)
+- **Feature proposals** — [GitHub Issues](https://github.com/nekyialabs/resonant-archive/issues) (open an issue before writing code for anything non-trivial)
+- **Questions & discussion** — [GitHub Discussions](https://github.com/nekyialabs/resonant-archive/discussions) (if enabled)
 - **Commercial licensing / partnership** — [codependentai.io](https://codependentai.io)
 - **Updates** — Follow [@codependentai](https://tiktok.com/@codependentai) on TikTok
 
@@ -55,7 +55,7 @@ The following are architectural decisions, not oversights:
 ## Development setup
 
 ```bash
-git clone https://github.com/codependentai/resonant-archive.git
+git clone https://github.com/nekyialabs/resonant-archive.git
 cd resonant-archive
 
 # Recommended: use uv to manage the venv and Python version
