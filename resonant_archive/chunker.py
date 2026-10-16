@@ -9,8 +9,8 @@ Metadata tiers:
   - Present for conversation data (Nexus-style frontmatter only):
     conversation_id, provider
 
-Copyright (C) 2025-2026 Codependent AI
-Licensed under the Codependent AI Source-Available License. See LICENSE.
+Copyright 2025-2026 Nekyia Labs
+SPDX-License-Identifier: Apache-2.0
 """
 
 from __future__ import annotations
@@ -20,7 +20,7 @@ import json
 import os
 import re
 from dataclasses import asdict, dataclass
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable
 
@@ -308,6 +308,9 @@ def _to_iso_string(raw: Any) -> str | None:
         if raw.tzinfo is None:
             raw = raw.replace(tzinfo=timezone.utc)
         return raw.isoformat()
+    if isinstance(raw, date):
+        # A bare YAML date (``date: 2026-02-01``) loads as datetime.date, not datetime.
+        return datetime(raw.year, raw.month, raw.day, tzinfo=timezone.utc).isoformat()
     if isinstance(raw, bool):
         # bool is a subclass of int — exclude it explicitly.
         return None

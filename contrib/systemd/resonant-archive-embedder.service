@@ -1,0 +1,28 @@
+# Optional example: run the local embed server as a systemd user service.
+#   mkdir -p ~/.config/systemd/user && cp resonant-archive-embedder.service ~/.config/systemd/user/
+#   systemctl --user daemon-reload && systemctl --user enable --now resonant-archive-embedder
+# Edit ExecStart if your python lives elsewhere (e.g. a venv path).
+[Unit]
+Description=resonant-archive local embedder (nomic-embed-text-v1.5, 127.0.0.1 only)
+After=default.target
+
+[Service]
+Type=simple
+ExecStart=%h/.local/bin/python3 -m resonant_archive.embed.server
+Environment=RESONANT_EMBEDDER_HOST=127.0.0.1
+Environment=RESONANT_EMBEDDER_PORT=8899
+Environment=RESONANT_EMBEDDER_THREADS=4
+Environment=OMP_NUM_THREADS=4
+Environment=RAYON_NUM_THREADS=4
+Environment=PYTHONUNBUFFERED=1
+Restart=on-failure
+RestartSec=5
+MemoryMax=3G
+Nice=10
+NoNewPrivileges=yes
+# The server makes no outbound connections; this makes the kernel agree.
+IPAddressDeny=any
+IPAddressAllow=localhost
+
+[Install]
+WantedBy=default.target

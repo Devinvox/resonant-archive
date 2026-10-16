@@ -1,0 +1,22 @@
+# gitleaks configuration (the gitleaks job in .github/workflows/ci.yml reads this file from the repository root).
+#
+# The default rules stay on. The only exceptions are the test fixtures that hold INVENTED credentials on purpose: the
+# redaction tests need key-shaped strings to prove they are removed. Each path is one file, listed by name, so a real
+# secret committed anywhere else (or in a new file) is still caught. Add a file here only when it holds synthetic
+# values and nothing else.
+title = "resonant-archive"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "synthetic credentials in the redaction test fixtures"
+paths = [
+  '''^tests/redaction_cases\.py$''',
+  '''^tests/synth\.py$''',
+  '''^tests/test_redact_anchors\.py$''',
+  '''^tests/test_redact_coverage\.py$''',
+  '''^tests/test_private_strip_lint\.py$''',
+  '''^tests/test_importer_safety\.py$''',
+  '''^claude-code/chronicle/tests/redact\.test\.ts$''',
+]

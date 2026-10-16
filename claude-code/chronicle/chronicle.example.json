@@ -1,0 +1,31 @@
+{
+  "archiveRoot": "~/.chronicle/archive",
+  "timezone": "",
+  "names": { "user": "You", "agent": "Assistant" },
+
+  "mirror": { "enabled": true },
+
+  "compaction": {
+    "tailTokens": 60000,
+    "maxTailTokens": 120000,
+    "minOlderMessages": 6,
+    "voice": "",
+    "steer": ""
+  },
+
+  "memories": {
+    "enabled": false,
+    "chunkMinTokens": 15000,
+    "chunkMaxTokens": 25000,
+    "voice": "",
+    "assemble": "manual",
+    "gapRawMaxTokens": 12000
+  },
+
+  "squish": { "enabled": true },
+  "contextLine": { "enabled": true, "warnAt": 75, "urgentAt": 90 },
+
+  "tools": { "rgPath": "rg" },
+
+  "archive": { "command": [], "timeoutMs": 30000 }
+}

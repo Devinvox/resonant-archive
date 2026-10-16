@@ -1,0 +1,30 @@
+# Postgres 17 with pgvector, for resonant-archive. Bound to loopback only: nothing off this machine can reach it.
+# Start:  resonant-archive init --docker   (writes .env with a random password and prints the next steps), then
+#         docker compose up -d --wait   and   resonant-archive init   (or `init --docker --up` for all of it).
+# By hand: cp .env.example .env, replace the password with a long random one (`init --docker` rejects the placeholder),
+# then `docker compose up -d --wait`.
+# The project name is fixed so the data volume has the same name wherever this file lives.
+name: resonant-archive
+services:
+  db:
+    # Pinned by digest (the tag alone can move). Same image as the 0.8.7-pg17 tag on 2026-10-16. To update: pull the
+    # new tag, read its changes, and replace the digest (`docker buildx imagetools inspect <tag>` prints it).
+    image: pgvector/pgvector:0.8.7-pg17@sha256:ac08538c6f8b9904c33c8224c5e5706dbe760aca29db1d096972b4052c22a75d
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: resonant
+      POSTGRES_DB: resonant_archive
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env (copy .env.example)}
+    ports:
+      - "127.0.0.1:${RESONANT_ARCHIVE_PORT:-54329}:5432"
+    volumes:
+      - resonant_archive_pgdata:/var/lib/postgresql/data
+      - ./docker/init-extensions.sql:/docker-entrypoint-initdb.d/00-extensions.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U resonant -d resonant_archive"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+
+volumes:
+  resonant_archive_pgdata:

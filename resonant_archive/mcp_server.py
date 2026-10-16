@@ -1,271 +1,189 @@
-"""resonant-archive MCP server — stdio MCP that forwards to the daemon.
+"""resonant-archive MCP server (stdio). Read-only.
 
-This module implements a Model Context Protocol (MCP) server exposing
-two tools to any MCP-compatible AI client (Claude Desktop, Claude Code,
-etc.):
+Tools
+    search      words, exact strings and meaning, rank-fused (full text + vectors + anchors)
+    around      one message and its neighbours in the conversation
+    overview    what happened between two dates: counts, busiest conversations, memories
+    associate   messages from other conversations that are close in meaning to one message
+    stats       what the archive holds
+    drill       the messages a chronicle memory was written from (only registered when memories exist)
+    archive_search, archive_stats   the v0.1 tool names, kept as aliases for one release
 
-  - ``archive_search(query, namespace?, n_results?)``
-  - ``archive_stats()``
-
-Both tools forward to the HTTP daemon (``resonant-archive serve``). The
-split lets the embedding model stay warm in the daemon while the MCP
-process is spawned fresh by the client on each session.
-
-Copyright (C) 2025-2026 Codependent AI
-Licensed under the Codependent AI Source-Available License. See LICENSE.
+The database connection is the read-only role's when one is configured (``RESONANT_ARCHIVE_READONLY_DSN``), and
+the session is read-only with a 10 second statement timeout either way. Query vectors come from the local embed
+server, or from the model loaded in this process when no server is running. When neither is available the search
+falls back to full text and anchors and says so in its answer.
 """
 
 from __future__ import annotations
 
 import asyncio
-from typing import Any
+import threading
+from typing import Any, Callable, Optional
 
-import httpx
-from mcp.server import Server
-from mcp.server.stdio import stdio_server
-from mcp.types import TextContent, Tool
+import psycopg
 
-DEFAULT_DAEMON_URL = "http://localhost:8766"
+from . import __version__, commands, config, runtime
+from .search import SearchConfig, SearchError, Searcher, open_readonly, render
 
+try:  # mcp 2.x
+    from mcp.server.mcpserver import MCPServer as _Server
+    from mcp.server.mcpserver.exceptions import ToolError
+except ImportError:  # mcp 1.x
+    from mcp.server.fastmcp import FastMCP as _Server  # type: ignore[no-redef]
+    from mcp.server.fastmcp.exceptions import ToolError  # type: ignore[no-redef]
 
-# ---------------------------------------------------------------------------
-# Formatters — turn JSON responses into human-readable text blocks
-# ---------------------------------------------------------------------------
-
-
-def _format_search(data: dict[str, Any]) -> str:
-    results = data.get("results") or []
-    query = data.get("query", "")
-    namespace = data.get("namespace")
-    total = data.get("total", 0)
-
-    header = f"Search: {query!r}"
-    if namespace:
-        header += f"  (namespace: {namespace})"
-    header += f"\nResults: {total}"
-
-    if not results:
-        return header + "\n\n(no results)"
-
-    parts = [header, ""]
-    for i, r in enumerate(results, 1):
-        parts.append("=" * 72)
-        ns = r.get("namespace") or "-"
-        parts.append(
-            f"[{i}] relevance={r.get('relevance', 0):.2f}   namespace={ns}"
-        )
-        if r.get("title"):
-            parts.append(f"    title:     {r['title']}")
-        if r.get("timestamp"):
-            parts.append(f"    timestamp: {r['timestamp']}")
-        if r.get("provider"):
-            parts.append(f"    provider:  {r['provider']}")
-        if r.get("conversation_id"):
-            parts.append(f"    conv_id:   {r['conversation_id']}")
-        parts.append(f"    source:    {r.get('source_file', 'unknown')}")
-        parts.append("")
-        parts.append(r.get("text", ""))
-        parts.append("")
-    return "\n".join(parts)
+INSTRUCTIONS = (
+    "Search a personal archive of past conversations and notes. Use `search` first (it matches exact words and "
+    "strings as well as meaning). Take a message id from a hit to `around` (read the conversation near it) or "
+    "`associate` (find related talk elsewhere). `overview` summarises a date range. Results are plain text; "
+    "a footer says when output was capped or vectors were unavailable."
+)
 
 
-def _format_stats(data: dict[str, Any]) -> str:
-    total = data.get("total_chunks", 0)
-    namespaces = data.get("namespaces") or {}
-    model = data.get("model", "unknown")
-    data_dir = data.get("data_dir", "unknown")
-
-    lines = [
-        f"Archive: {total:,} chunks total",
-        f"Model:   {model}",
-        f"Dir:     {data_dir}",
-    ]
-    if namespaces:
-        lines.append("")
-        lines.append("Namespaces:")
-        for ns, count in sorted(namespaces.items(), key=lambda x: -x[1]):
-            lines.append(f"  {ns}: {count:,}")
-    return "\n".join(lines)
+def _csv(value: Optional[str]) -> Optional[list[str]]:
+    """A comma separated string from a tool call -> a list, or None."""
+    if value is None:
+        return None
+    items = [v.strip() for v in str(value).split(",") if v.strip()]
+    return items or None
 
 
-# ---------------------------------------------------------------------------
-# MCP server construction
-# ---------------------------------------------------------------------------
+class Backend:
+    """One read-only connection, opened on first use and reopened if it drops. Calls are serialised."""
+
+    def __init__(self, dsn: str | None = None, embedder: Any = None, cfg: SearchConfig | None = None) -> None:
+        self._dsn = dsn
+        self.embedder = embedder if embedder is not None else runtime.ClientQueryEmbedder()
+        self.cfg = cfg or SearchConfig.from_env()
+        self._conn = None
+        self._lock = threading.Lock()
+
+    def _connection(self):
+        if self._conn is None or getattr(self._conn, "closed", False):
+            self._conn = open_readonly(runtime.readonly_dsn(self._dsn))
+        return self._conn
+
+    def close(self) -> None:
+        with self._lock:
+            if self._conn is not None:
+                try:
+                    self._conn.close()
+                finally:
+                    self._conn = None
+
+    def call(self, fn: Callable[[Searcher], str]) -> str:
+        """Run ``fn(searcher)`` and return its text. Search problems become tool errors with a readable message."""
+        with self._lock:
+            for attempt in (0, 1):
+                try:
+                    conn = self._connection()
+                    return fn(Searcher(conn, self.embedder, self.cfg))
+                except SearchError as exc:
+                    raise ToolError(str(exc)) from None
+                except config.ConfigError as exc:
+                    raise ToolError(str(exc)) from None
+                except (psycopg.OperationalError, psycopg.InterfaceError) as exc:
+                    # The connection dropped (server restart, idle timeout): reopen once, then report.
+                    self._conn = None
+                    if attempt == 0:
+                        continue
+                    first = str(exc).strip().splitlines()[0][:300] if str(exc).strip() else ""
+                    raise ToolError(f"cannot reach the archive database: {first}") from None
+                except Exception as exc:
+                    first = str(exc).strip().splitlines()[0][:300] if str(exc).strip() else ""
+                    raise ToolError(f"{type(exc).__name__}: {first}") from None
+        raise ToolError("could not reach the archive database")  # pragma: no cover
 
 
-def create_server(daemon_url: str = DEFAULT_DAEMON_URL) -> Server:
-    server: Server = Server("resonant-archive")
+def memories_exist(backend: Backend) -> bool:
+    try:
+        return bool(backend.call(lambda s: "yes" if s.memories_available() else ""))
+    except ToolError:
+        return False
 
-    @server.list_tools()
-    async def list_tools() -> list[Tool]:
-        return [
-            Tool(
-                name="archive_search",
-                description=(
-                    "Search a local archive of conversations, notes, or any "
-                    "text corpus using semantic similarity. Results include "
-                    "provenance metadata (namespace, source file, timestamp, "
-                    "conversation_id, title, provider) so you can ground "
-                    "responses in the origin of each match. Use this when "
-                    "asked about past conversations, when verifying "
-                    "continuity across time, for pattern recognition across "
-                    "history, or when the current context is missing "
-                    "information that may exist in the archive."
-                ),
-                inputSchema={
-                    "type": "object",
-                    "properties": {
-                        "query": {
-                            "type": "string",
-                            "description": (
-                                "What you're looking for, described "
-                                "conceptually. Semantic search finds meaning, "
-                                "not exact keywords."
-                            ),
-                        },
-                        "namespace": {
-                            "type": "string",
-                            "description": (
-                                "Optional. Restrict the search to a single "
-                                "namespace (e.g. 'chatgpt-2024', 'journals'). "
-                                "Omit to search across all namespaces."
-                            ),
-                        },
-                        "n_results": {
-                            "type": "integer",
-                            "description": (
-                                "Number of results to return "
-                                "(1-20, default 5)."
-                            ),
-                            "default": 5,
-                            "minimum": 1,
-                            "maximum": 20,
-                        },
-                    },
-                    "required": ["query"],
-                },
-            ),
-            Tool(
-                name="archive_stats",
-                description=(
-                    "Get statistics about the indexed archive: total chunks, "
-                    "per-namespace breakdown, embedding model in use, and "
-                    "data directory. Useful for confirming the archive is "
-                    "available and seeing what corpora are indexed."
-                ),
-                inputSchema={
-                    "type": "object",
-                    "properties": {},
-                },
-            ),
-        ]
 
-    @server.call_tool()
-    async def call_tool(
-        name: str, arguments: dict[str, Any]
-    ) -> list[TextContent]:
-        if name == "archive_search":
-            return await _do_search(daemon_url, arguments)
-        if name == "archive_stats":
-            return await _do_stats(daemon_url)
-        raise ValueError(f"Unknown tool: {name}")
+def build_server(backend: Backend | None = None, *, with_drill: bool | None = None) -> Any:
+    """Create the MCP server. ``with_drill`` forces the decision; by default ``drill`` is registered only when the
+    archive holds chronicle memories at start-up."""
+    be = backend or Backend()
+    try:
+        server = _Server("resonant-archive", instructions=INSTRUCTIONS, version=__version__)
+    except TypeError:  # mcp 1.x takes no version argument
+        server = _Server("resonant-archive", instructions=INSTRUCTIONS)
+    cfg = be.cfg
+
+    async def run(fn: Callable[[Searcher], str]) -> str:
+        return await asyncio.to_thread(be.call, fn)
+
+    @server.tool(name="search", description=(
+        "Search the archive by words, exact strings (paths, ids, urls, quoted phrases) and meaning, rank-fused. "
+        "Filters: source (comma separated labels), speaker (user, agent, assistant, peer, system, tool), context, "
+        "date_from / date_to (YYYY-MM-DD, whole days), hidden (include tool calls and harness rows), mode "
+        "(hybrid, fts, vector, anchor), limit (1-40). Returns hits with ids you can pass to around / associate."))
+    async def search(query: str, source: Optional[str] = None, speaker: Optional[str] = None,
+                     context: Optional[str] = None, date_from: Optional[str] = None, date_to: Optional[str] = None,
+                     hidden: bool = False, mode: str = "hybrid", limit: int = 10,
+                     include_recent: bool = False) -> str:
+        return await run(lambda s: render(s.search(
+            query, mode=mode, sources=_csv(source), speakers=_csv(speaker), contexts=_csv(context),
+            date_from=date_from, date_to=date_to, hidden=hidden, include_recent=include_recent, limit=limit), cfg))
+
+    @server.tool(name="around", description=(
+        "Read a message and the messages next to it in its conversation. `id` comes from a search hit. "
+        "before / after: how many messages either side (0-30, default 4). hidden: include tool rows."))
+    async def around(id: str, before: int = 4, after: int = 4, hidden: bool = False) -> str:
+        return await run(lambda s: render(s.around(id, before=before, after=after, hidden=hidden), cfg))
+
+    @server.tool(name="overview", description=(
+        "What the archive holds between two dates (YYYY-MM-DD, both required, inclusive): message counts by "
+        "source and speaker, the busiest conversations, and chronicle memories in range when the archive has any. "
+        "memories: include (default), only, none."))
+    async def overview(date_from: str, date_to: str, source: Optional[str] = None, memories: str = "include") -> str:
+        return await run(lambda s: render(s.overview(date_from, date_to, sources=_csv(source), memories=memories), cfg))
+
+    @server.tool(name="associate", description=(
+        "Messages from other conversations that are closest in meaning to one message (`id` from a search hit). "
+        "Needs vectors: the message must have been embedded. k: how many (1-20, default 8)."))
+    async def associate(id: str, k: int = 8, source: Optional[str] = None, speaker: Optional[str] = None,
+                        context: Optional[str] = None, date_from: Optional[str] = None,
+                        date_to: Optional[str] = None, hidden: bool = False, include_recent: bool = False) -> str:
+        return await run(lambda s: render(s.associate(
+            id, k=k, sources=_csv(source), speakers=_csv(speaker), contexts=_csv(context), date_from=date_from,
+            date_to=date_to, hidden=hidden, include_recent=include_recent), cfg))
+
+    def _stats_text() -> str:
+        return runtime.stats_text(commands.stats(be._dsn))
+
+    @server.tool(name="stats", description="What the archive holds: messages by source and speaker, conversations, "
+                                           "memories, and how many rows still await embedding.")
+    async def stats() -> str:
+        return await run(lambda s: _stats_text())
+
+    # v0.1 names, kept for one release so existing client configs keep working.
+    @server.tool(name="archive_search", description=(
+        "Deprecated alias of `search` (v0.1 name). namespace = source, n_results = limit."))
+    async def archive_search(query: str, namespace: Optional[str] = None, n_results: int = 10) -> str:
+        return await run(lambda s: render(s.search(query, sources=_csv(namespace), limit=n_results), cfg))
+
+    @server.tool(name="archive_stats", description="Deprecated alias of `stats` (v0.1 name).")
+    async def archive_stats() -> str:
+        return await run(lambda s: _stats_text())
+
+    if with_drill if with_drill is not None else memories_exist(be):
+        @server.tool(name="drill", description=(
+            "The archive messages a chronicle memory was written from. `memory` is the #index shown by overview, "
+            "or the id of one of its endpoint messages. hidden: include tool rows."))
+        async def drill(memory: str, hidden: bool = False) -> str:
+            return await run(lambda s: render(s.drill(memory, hidden=hidden), cfg))
 
     return server
 
 
-# ---------------------------------------------------------------------------
-# Tool implementations
-# ---------------------------------------------------------------------------
+def run() -> None:
+    """Serve on stdio until the client disconnects."""
+    server = build_server()
+    server.run("stdio")
 
 
-async def _do_search(
-    daemon_url: str, arguments: dict[str, Any]
-) -> list[TextContent]:
-    query = arguments.get("query")
-    if not query:
-        return [
-            TextContent(
-                type="text",
-                text="Error: 'query' parameter is required.",
-            )
-        ]
-
-    payload: dict[str, Any] = {
-        "query": query,
-        "n_results": arguments.get("n_results", 5),
-    }
-    ns = arguments.get("namespace")
-    if ns:
-        payload["namespace"] = ns
-
-    try:
-        async with httpx.AsyncClient() as client:
-            resp = await client.post(
-                f"{daemon_url}/search", json=payload, timeout=30.0
-            )
-            resp.raise_for_status()
-            return [
-                TextContent(type="text", text=_format_search(resp.json()))
-            ]
-    except httpx.ConnectError:
-        return [
-            TextContent(
-                type="text",
-                text=_daemon_unreachable_message(daemon_url),
-            )
-        ]
-    except Exception as exc:  # noqa: BLE001
-        return [
-            TextContent(type="text", text=f"Error searching archive: {exc}")
-        ]
-
-
-async def _do_stats(daemon_url: str) -> list[TextContent]:
-    try:
-        async with httpx.AsyncClient() as client:
-            resp = await client.get(f"{daemon_url}/stats", timeout=10.0)
-            resp.raise_for_status()
-            return [
-                TextContent(type="text", text=_format_stats(resp.json()))
-            ]
-    except httpx.ConnectError:
-        return [
-            TextContent(
-                type="text",
-                text=_daemon_unreachable_message(daemon_url),
-            )
-        ]
-    except Exception as exc:  # noqa: BLE001
-        return [TextContent(type="text", text=f"Error getting stats: {exc}")]
-
-
-def _daemon_unreachable_message(daemon_url: str) -> str:
-    return (
-        f"Error: cannot reach the resonant-archive daemon at {daemon_url}.\n"
-        "Start it in a terminal with:\n"
-        "\n"
-        "    resonant-archive serve\n"
-        "\n"
-        "Leave that terminal open while using Claude Desktop or any other "
-        "MCP client."
-    )
-
-
-# ---------------------------------------------------------------------------
-# Entry point
-# ---------------------------------------------------------------------------
-
-
-def run_mcp(daemon_url: str = DEFAULT_DAEMON_URL) -> None:
-    """Run the MCP stdio server. Blocks until the client disconnects."""
-    asyncio.run(_run(daemon_url))
-
-
-async def _run(daemon_url: str) -> None:
-    server = create_server(daemon_url)
-    async with stdio_server() as (read_stream, write_stream):
-        await server.run(
-            read_stream,
-            write_stream,
-            server.create_initialization_options(),
-        )
+__all__ = ["Backend", "build_server", "run", "INSTRUCTIONS"]

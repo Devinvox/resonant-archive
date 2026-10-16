@@ -2,9 +2,9 @@
 
 Part of the Resonant ecosystem. See README.md for installation and usage.
 
-Copyright (C) 2025-2026 Codependent AI
-Licensed under the Codependent AI Source-Available License. See LICENSE.
+Copyright 2025-2026 Nekyia Labs
+SPDX-License-Identifier: Apache-2.0
 """
 
-__version__ = "0.1.0"
+__version__ = "2.0.0"
 __all__ = ["__version__"]

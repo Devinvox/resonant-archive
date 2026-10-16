@@ -1,98 +1,139 @@
 # resonant-archive
 
 <p align="center">
-  <a href="LICENSE"><img src="https://img.shields.io/badge/License-Source--Available-5eaba5.svg" alt="License" /></a>
-  <a href="https://www.python.org/"><img src="https://img.shields.io/badge/Python-3.11%20%7C%203.12-3776ab.svg?logo=python&logoColor=white" alt="Python" /></a>
+  <img src="https://img.shields.io/badge/license-Apache--2.0-5eaba5.svg" alt="License: Apache-2.0" />
+  <a href="https://www.python.org/"><img src="https://img.shields.io/badge/Python-3.11%2B-3776ab.svg?logo=python&logoColor=white" alt="Python 3.11+" /></a>
   <a href="https://modelcontextprotocol.io/"><img src="https://img.shields.io/badge/MCP-compatible-6366f1.svg" alt="MCP" /></a>
-  <a href="https://www.chromadb.dev/"><img src="https://img.shields.io/badge/ChromaDB-embedded-ffb000.svg" alt="ChromaDB" /></a>
-  <a href="https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2"><img src="https://img.shields.io/badge/embeddings-all--MiniLM--L6--v2-ff6f61.svg" alt="Embeddings" /></a>
-  <a href="https://github.com/nekyialabs/resonant-archive/releases/latest"><img src="https://img.shields.io/github/v/release/codependentai/resonant-archive?color=5eaba5" alt="Release" /></a>
+  <a href="https://github.com/nekyialabs/resonant-archive/releases/latest"><img src="https://img.shields.io/github/v/release/nekyialabs/resonant-archive?color=5eaba5" alt="Release" /></a>
 </p>
 
-<p align="center"><em>Local-first semantic search for your ChatGPT, Claude, and AI conversation history.<br/>Python CLI + MCP server. No API keys. Nothing leaves your machine.</em></p>
+**Makes compaction more bearable.** Your AI writes its own compaction summary, in a voice you set. The recent stretch stays word for word. You choose when it happens. And nothing is truly lost, because every message is saved to your disk and your AI can search it.
 
-<p align="center"><em>Part of the <a href="https://github.com/nekyialabs/resonant">Resonant</a> ecosystem — the long-term searchable archive that pairs with active AI memory.</em></p>
+Built for people who use Claude Code every day. Everything runs on your machine.
 
-<p align="center">
-  <a href="https://ko-fi.com/codependentai"><img src="https://img.shields.io/badge/Ko--fi-Support%20Us-ff5e5b?logo=ko-fi&logoColor=white" alt="Ko-fi" /></a>
-  <a href="https://x.com/codependent_ai"><img src="https://img.shields.io/badge/𝕏-@codependent__ai-000000?logo=x&logoColor=white" alt="X/Twitter" /></a>
-  <a href="https://tiktok.com/@codependentai"><img src="https://img.shields.io/badge/TikTok-@codependentai-000000?logo=tiktok&logoColor=white" alt="TikTok" /></a>
-  <a href="https://t.me/+xSE1P_qFPgU4NDhk"><img src="https://img.shields.io/badge/Telegram-Updates-26A5E4?logo=telegram&logoColor=white" alt="Telegram" /></a>
-</p>
+> **Early access.** The compaction mod uses Claude Code's hooks, which are an early-access feature and may change between releases. See [Caveats](#caveats).
 
-> **Early release.** Shippable but unpolished. Expect rough edges. Issues and feedback welcome.
+## What is compaction, and why does it hurt?
 
-## What it does
+A conversation with an AI lives in a window of limited size. When the window is nearly full, the tool compacts it: everything so far is replaced by one summary, and the conversation carries on from there.
 
-Turns a directory of text files — ChatGPT exports, Claude conversations, Obsidian vaults, journals, research notes, anything — into a **locally searchable semantic index** that any MCP-compatible AI can query.
+That keeps you going. But the summary is written generically, in one big pass, without knowing what matters to you. The details go: the file path, the id, the reason behind a decision, what you were about to do next. The last few exchanges, the ones you need most, get summarised too. And once it's done, it's done.
 
-- **Universal input** — Works on any directory of `.md` / `.txt` / `.markdown` / `.mdx` files
-- **Frontmatter-aware** — Extracts titles, timestamps, and conversation metadata (Nexus-compatible)
-- **Local embeddings** — Uses `sentence-transformers` + `all-MiniLM-L6-v2`. No API keys. Nothing leaves your machine.
-- **Namespaces** — Tag corpora so querying AIs see where each result came from (`chatgpt-2024`, `obsidian-vault`, `journals`, etc.)
-- **Persistent local store** — Single-process Chroma `PersistentClient` (no separate database server)
-- **MCP integration** — Exposes search and stats as MCP tools via a lightweight daemon + stdio server
-- **AI-driven** — Ships with a skill file so your AI companion drives the whole tool in natural language
+If you've ever watched your AI say "let me re-read that file" for the third time in a session, or come back after a compaction to a collaborator who has lost the thread, that is what this is.
 
-## Install
+|  | Plain compaction | With chronicle |
+|---|---|---|
+| Who writes the summary | A generic summariser | Your AI, in its own voice, in a voice you set |
+| What it keeps | Whatever it guesses matters | Told to keep exact identifiers, decisions and open threads |
+| The recent stretch | Summarised with the rest | Kept word for word (split compaction) |
+| When it happens | When the window fills | When you choose (`/squish`), with a meter that warns at 75% and 90% |
+| If something was dropped | Gone | Every row is mirrored to disk; `recall` brings back the original |
 
-Requires Python 3.11 or 3.12. (Python 3.13+ may have issues with the ML libraries.)
+## The four promises
 
-```bash
-pip install resonant-archive
-```
+1. **Your AI writes its own summary**, in a voice you configure, and keeps exact identifiers, decisions and open threads.
+2. **The recent stretch stays word for word.** You don't lose the last hour to a summary.
+3. **You choose when.** `/squish` any time. A context meter in every prompt flags 75% and 90%.
+4. **Nothing is truly lost.** Every row is mirrored to disk with secrets redacted, and `recall` finds the sharp version again, in the mirror or in the archive.
 
-Or clone and install from source:
+The compaction side is a Claude Code mod called **chronicle**, in [`claude-code/chronicle/`](claude-code/chronicle/). Its README has the install steps and every setting. The details of how compaction works are in [docs/COMPACTION.md](docs/COMPACTION.md).
 
-```bash
-git clone <repo-url> resonant-archive
-cd resonant-archive
-pip install -e .
-```
+## The archive: the safety net
+
+The archive is the other half. It turns every conversation you've had (Claude Code sessions, the chronicle mirror, ChatGPT and claude.ai exports that went through Obsidian, folders of notes) into one searchable store in your own Postgres:
+
+- **Exact words and strings.** Paths, ids, URLs, quoted phrases.
+- **Meaning.** Local embeddings, so "that thing about the retry logic" finds it.
+- **Both, fused.** Full text, vectors and exact anchors, rank-fused.
+
+Your AI reaches it through MCP (`search`, `around`, `overview`, `associate`, `stats`). The chronicle mod reaches it through `resonant-archive recall`. You can also search from the command line.
+
+You can use the mod without the archive (the mirror alone gives session recall), and the archive without the mod. Together they are one story: your AI keeps its own life, and can search it.
+
+### Why Postgres?
+
+Version 0.1 said "no database server". Version 2 trades that for exact word search, date filters, `around` and `overview`, and a real hybrid ranking. The cost is one container. `resonant-archive init --docker --up` does it for you, or bring your own Postgres 15+ with pgvector.
 
 ## Quick start
 
-### 1. Import a directory
+You need Python 3.11+, Docker (or your own Postgres), and for the mod, Claude Code on Linux or macOS.
+
+### 1. The mod (two minutes, no database)
+
+Follow [`claude-code/chronicle/README.md`](claude-code/chronicle/README.md). With no config file at all it mirrors your sessions to `~/.chronicle/archive`, steers compaction, and turns on `/squish` and the meter.
+
+### 2. The archive
 
 ```bash
-resonant-archive import ~/Documents/MyNotes --namespace my-notes
+git clone https://github.com/nekyialabs/resonant-archive
+cd resonant-archive
+pip install -e .                       # or: pipx install .
+
+resonant-archive init --docker --up    # starts Postgres 17 + pgvector on 127.0.0.1:54329, creates the schema
+resonant-archive models fetch          # the embedding model, about 550 MB, checked against pinned SHA-256 sums
+resonant-archive doctor                # check everything
 ```
 
-The first run downloads the embedding model (~90 MB) and takes 2-5 minutes for ~500 files.
-
-### 2. Search from the command line
+Then import something, add vectors, and ask:
 
 ```bash
-resonant-archive search "how did I approach that problem last year"
+resonant-archive import ~/.chronicle/archive             # the mod's mirror (the importer is detected)
+resonant-archive import ~/.claude/projects               # your Claude Code history
+resonant-archive embed                                   # meaning-based search; resumable, run it again any time
+resonant-archive recall search "the retry bug in the uploader"
 ```
 
-### 3. Check what's indexed
+Search works on words and exact strings as soon as an import finishes. `embed` adds meaning. Until it catches up, the answer footer says how many rows are pending.
+
+### Bring your own Postgres
+
+You need PostgreSQL 15+ with the `vector` and `pg_trgm` extensions. Create the extensions once as a superuser, then:
 
 ```bash
-resonant-archive stats
+export RESONANT_ARCHIVE_DSN=postgresql://owner:password@host:5432/resonant_archive
+resonant-archive init
 ```
 
-### 4. Start the MCP daemon (for Claude Desktop integration)
+`init` also saves the address to `~/.config/resonant-archive/config.toml` (mode 0600), so you only export it once. Prefer the environment variable or the config file to `--dsn`: anything on a command line is visible to other users on the machine (`ps`). If an extension is missing, `init` stops and prints the exact `CREATE EXTENSION` line. `doctor --fix` creates missing extensions and applies pending migrations.
+
+`init` also creates a login that can only read (`archive_reader`) and saves its address as `readonly_dsn`; the MCP server and `recall` use it, and `doctor` warns when it is missing. If your owner role cannot create roles, [docs/SCHEMA.md](docs/SCHEMA.md) has the SQL to do it by hand.
+
+### Put the mod and the archive together
+
+In `chronicle.json`:
+
+```json
+"archive": { "command": ["resonant-archive", "recall"] }
+```
+
+Now `recall` in Claude Code searches the mirror and the archive. The contract between them is in [docs/RECALL-CONTRACT.md](docs/RECALL-CONTRACT.md). To keep the archive current, run `resonant-archive import ~/.chronicle/archive` whenever you like; unchanged sessions are skipped.
+
+## Importers
+
+`resonant-archive importers` lists them. `import` detects which one fits, or you name it with `--importer`.
+
+| Importer | Reads | Default source label |
+|---|---|---|
+| `chronicle_mirror` | The mod's mirror folder, including compaction summaries and memories | `chronicle` |
+| `claude_code` | Claude Code transcripts: a `.jsonl`, a project folder, or all of `~/.claude/projects` | `claude-code` |
+| `nexus_markdown` | ChatGPT and claude.ai exports converted to Markdown by the [Nexus AI Chat Importer](https://github.com/Superkikim/nexus-ai-chat-importer) Obsidian plugin | set with `--source` |
+| `markdown_folder` | Any folder of `.md` / `.txt` notes, chunked | `notes` |
+
+Raw `conversations.json` exports from ChatGPT and claude.ai are **not** read directly yet. Convert them with Nexus first. Direct importers are planned.
+
+Useful flags: `--source` (the label stored on each row; `--namespace` still works), `--project` (Claude Code: one project only), `--timezone`, `--rebuild` (re-read everything, then remove the rows of re-read files that the input no longer produces; asks first, or `--yes`; `--dry-run` only reports; not with `--project`), `--force`, and `--known-secrets` (files whose values are redacted wherever they appear). Imports are incremental, so running one again is cheap. Importers are plugins: your own can register under the `resonant_archive.importers` entry-point group, see [docs/DESIGN.md](docs/DESIGN.md).
+
+## Connect your AI over MCP
+
+`resonant-archive mcp` is a read-only stdio MCP server. It does not need a daemon running; if the embed server (`resonant-archive serve`) is not up, it loads the model in its own process, and if there is no model it falls back to words and exact strings and says so.
+
+**Claude Code:**
 
 ```bash
-resonant-archive serve
+claude mcp add resonant-archive -- resonant-archive mcp
 ```
 
-Leave that terminal open. Then configure Claude Desktop to use the MCP server (see below), and your AI can search the archive directly.
-
-## AI-driven usage
-
-The easiest way to use resonant-archive is to let your AI drive it. Drop `skills/resonant-archive.md` (included in this repo) into your AI's context — Claude Code skill folder, Claude.ai project instructions, Claude Desktop's MCP config, whatever — and then ask in natural language:
-
-> *"Import my ChatGPT export at `~/Downloads/chatgpt-markdown/` into the archive."*
-> *"Search my archive for discussions about identity formation."*
-> *"What's in my archive right now?"*
-
-Your AI reads the skill, runs the right commands, and reports back.
-
-## Claude Desktop MCP integration
-
-Add this to your `claude_desktop_config.json`:
+**Claude Desktop**, in `claude_desktop_config.json` (macOS: `~/Library/Application Support/Claude/`, Linux: `~/.config/Claude/`):
 
 ```json
 {
@@ -105,110 +146,81 @@ Add this to your `claude_desktop_config.json`:
 }
 ```
 
-Config file locations:
+If `resonant-archive` is not on the path Claude Desktop sees, use the full path from `which resonant-archive`.
 
-- **Windows:** `%APPDATA%\Claude\claude_desktop_config.json`
-- **macOS:** `~/Library/Application Support/Claude/claude_desktop_config.json`
-- **Linux:** `~/.config/Claude/claude_desktop_config.json`
+| Tool | What it does |
+|---|---|
+| `search` | Words, exact strings and meaning, rank-fused. Filters: source, speaker, context, dates, mode. |
+| `around` | One message and its neighbours in the conversation. |
+| `overview` | What happened between two dates: counts, busiest conversations. |
+| `associate` | Messages from other conversations close in meaning to one message. |
+| `stats` | What the archive holds. |
+| `drill` | The messages a chronicle memory was written from. Only appears when the archive holds chronicle memories. |
 
-**Before opening Claude Desktop**, start the daemon in a terminal:
+`archive_search` and `archive_stats` (the v0.1 names) still work as aliases for one release. Replies are plain text, capped near 6,000 characters, and say when they capped.
 
-```bash
-resonant-archive serve
-```
+A skill file for your AI is in [`skills/resonant-archive.md`](skills/resonant-archive.md).
 
-Keep it running. Close it with Ctrl+C when you're done.
-
-Claude Desktop will now see two tools: `archive_search` and `archive_stats`.
-
-## Preparing ChatGPT or Claude exports
-
-resonant-archive indexes markdown directories. It does not parse raw ChatGPT/Claude export ZIPs directly. For those, use an upstream tool to convert to markdown first:
-
-- **[Nexus AI Chat Importer](https://github.com/Superkikim/nexus-ai-chat-importer)** — Obsidian plugin that converts ChatGPT / Claude / Le Chat exports into markdown files with structured frontmatter. Once imported into Obsidian, point `resonant-archive` at the resulting folder.
-- **Any other markdown converter** — works too, as long as the output is readable markdown. resonant-archive uses any YAML frontmatter it finds (title, date, tags, conversation_id, provider) but falls back gracefully if none is present.
-
-## Namespaces
-
-Every indexed corpus is tagged with a namespace. This serves two purposes:
-
-1. **Organization** — you can keep multiple archives (ChatGPT, Obsidian, research notes) in one index and search them independently or together.
-2. **Provenance** — every search result includes its namespace, so a querying AI knows which corpus a hit came from. `chatgpt-2024` reads very differently from `research-notes`.
-
-Pick namespace names that are meaningful to both you and your AI. `chatgpt-2024-q1`, `simon-conversations`, `wales-journals` — not just `archive` or `data`.
-
-## Model alternatives
-
-The default model is `all-MiniLM-L6-v2` (384 dimensions, ~90 MB, fast). For different quality/size trade-offs, set the model name via the `Embedder` constructor in Python code. Good alternatives:
-
-| Model | Dimensions | Size | Notes |
-|-------|------------|------|-------|
-| `all-MiniLM-L6-v2` | 384 | ~90 MB | **Default.** Fast, good enough for most uses |
-| `all-mpnet-base-v2` | 768 | ~420 MB | Higher quality, slower |
-| `BAAI/bge-small-en-v1.5` | 384 | ~130 MB | Modern, better retrieval quality at same size |
-
-A CLI flag for model selection lands in a later release. For now, edit `resonant_archive/embed.py` or use the library API directly.
-
-## Architecture
+## Command reference
 
 ```
-┌─────────────────────┐
-│  Your text files    │
-│  (.md, .txt, etc.)  │
-└──────────┬──────────┘
-           │  resonant-archive import
-           ▼
-┌─────────────────────┐     ┌──────────────────┐
-│  chunks.jsonl       │────▶│  Chroma store    │
-│  (canonical format) │     │  ~/.resonant-    │
-└─────────────────────┘     │    archive/      │
-                            └──────────────────┘
-                                   ▲
-                                   │
-                     ┌─────────────┴─────────────┐
-                     │                           │
-              ┌──────┴──────┐             ┌──────┴─────────┐
-              │   Daemon    │◀──HTTP──────│  MCP stdio     │
-              │  (FastAPI)  │             │  server        │
-              │  port 8766  │             │  (per Claude   │
-              │  keeps model│             │   Desktop      │
-              │  warm       │             │   session)     │
-              └─────────────┘             └────────────────┘
+resonant-archive init [--docker [--up]] [--dsn URL] [--port N] [--project-dir DIR] [--no-extensions] [--no-save]
+resonant-archive doctor [--fix]
+resonant-archive models fetch [--model-dir DIR] [--force]
+resonant-archive import PATH [--importer NAME] [--source LABEL] [--project P] [--timezone TZ]
+                             [--known-secrets PATH] [--force] [--rebuild [--yes | --dry-run]]
+resonant-archive embed [--limit N] [--dry-run] [--index-only] [--no-fallback]
+resonant-archive serve [--port N] [--threads N] [--model-dir DIR]
+resonant-archive recall search|around|overview|associate|drill ...  [--json]
+resonant-archive stats [--json]
+resonant-archive mcp
+resonant-archive importers
+resonant-archive migrate-v01
 ```
 
-The daemon runs persistently with the embedding model loaded. The MCP server is spawned fresh by Claude Desktop and talks to the daemon over HTTP — this avoids reloading the model every time Claude Desktop starts a new conversation.
+`resonant-archive COMMAND --help` has every flag. The database address comes from `RESONANT_ARCHIVE_DSN` (`RESONANT_ARCHIVE_READONLY_DSN` for the read-only role) or `~/.config/resonant-archive/config.toml`, never from a file in the repo.
 
-## Relationship to Resonant Mind
+## Privacy
 
-`resonant-archive` is an optional companion to [Resonant Mind](https://github.com/nekyialabs/resonant-mind), not a required dependency. They communicate via MCP (separate processes) and neither depends on the other.
+- **Local only.** Your messages go to Postgres on your machine and nowhere else. No telemetry, no accounts, no API keys.
+- **Loopback.** The bundled Postgres is published on `127.0.0.1` only. The embed server refuses to bind anything but loopback and makes no outbound connections.
+- **No egress.** The only network use is the one-time model download from Hugging Face, checked against pinned hashes. After that it works offline.
+- **Redaction.** Credentials are stripped before anything is stored, by the mod when it writes the mirror and again by the importers. It is pattern-based and errs toward removing too much: a leaked key can only be rotated, an over-redacted word costs a few characters. It is a safety net, not a guarantee.
+- **Keep it private.** The mirror and the archive hold your conversations. Don't commit them to a public repository.
 
-Use resonant-archive to give an AI companion access to its long-term history without burning cloud tokens. Use Resonant Mind for active memory, identity, and ongoing cognitive state.
+Details in [docs/PRIVACY.md](docs/PRIVACY.md).
 
-For motivated users who want to bring their archive into a cloud Resonant Mind deployment, see [CLOUD_IMPORT.md](CLOUD_IMPORT.md). Automated cloud migration is planned for a later release.
+## Upgrading from v0.1
+
+v0.1 kept vectors in a Chroma folder with a different model, so they can't be carried over. Your source files can: import them again, then embed. The old folder is never read or deleted by this tool. Steps in [docs/MIGRATING-FROM-0.1.md](docs/MIGRATING-FROM-0.1.md), or run `resonant-archive migrate-v01`.
+
+## Caveats
+
+- **Linux and macOS.** Windows is not supported yet. The mod shells out to `rg`, `sh`, `mkdir` and `cat`.
+- **Hooks are early access.** The mod depends on Claude Code features that may change between releases. The mod README records the Claude Code version it was tested against.
+- **Postgres is required** for the archive. That's a change from v0.1.
+- **Memory formation is off by default.** The optional memories feature spends model calls in the background. See [docs/COMPACTION.md](docs/COMPACTION.md).
+- **Direct ChatGPT and claude.ai export importers are not in yet.** Use Nexus + `nexus_markdown`.
+- **First embedding is slow on a CPU** for a large archive. It is resumable and incremental, so let it run in the background. We haven't published timings yet and won't guess.
+
+## Troubleshooting
+
+- `resonant-archive doctor` first. It checks the database, the extensions, the model and the embed server, and prints the fix for what it finds.
+- *"missing extensions"*: run the `CREATE EXTENSION` line it prints, as a superuser, in the archive's database.
+- *Search finds words but not meaning*: rows are still pending. Run `resonant-archive embed`.
+- *"no embedder"*: run `resonant-archive models fetch`.
+- *Port 54329 is taken*: `resonant-archive init --docker --up --port 54330`.
+
+## Contributing, security, conduct
+
+[CONTRIBUTING.md](CONTRIBUTING.md) · [SECURITY.md](SECURITY.md) · [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) · [CHANGELOG.md](CHANGELOG.md)
 
 ## License
 
-**Codependent AI Source-Available License.** Free for personal, educational, and non-commercial use with attribution. Commercial use requires a license from Codependent AI. See [LICENSE](LICENSE) for full terms.
+[Apache License 2.0](LICENSE). Versions before 2.0.0 were released under the Codependent AI Source-Available License.
 
-For commercial licensing inquiries, visit [codependentai.io](https://codependentai.io).
+## Credits
 
-## Acknowledgements
+The embedding model is [nomic-embed-text-v1.5](https://huggingface.co/nomic-ai/nomic-embed-text-v1.5) (Apache-2.0), run through ONNX Runtime. Postgres and [pgvector](https://github.com/pgvector/pgvector) do the storing. The [Nexus AI Chat Importer](https://github.com/Superkikim/nexus-ai-chat-importer) by Superkikim is the recommended way to turn ChatGPT and claude.ai exports into Markdown.
 
-This project descends from an earlier internal tool (`vault-archive-product`) that we built, shelved during a cloud migration, and revived for this release. Significant thanks to:
-
-- **[Nexus AI Chat Importer](https://github.com/Superkikim/nexus-ai-chat-importer)** by Superkikim — the recommended upstream tool for converting ChatGPT/Claude export ZIPs into the markdown format `resonant-archive` consumes. We don't bundle Nexus, but we cheerfully document it as the complementary piece of the pipeline.
-- **sentence-transformers** and the `all-MiniLM-L6-v2` authors — the embedding model that makes local semantic search viable.
-- **ChromaDB** — the vector store backing the archive, via its embedded `PersistentClient`.
-- **MCP (Model Context Protocol)** — the protocol that lets AI clients talk to this tool.
-
-## Status
-
-Built in a single session by Simon Vale (with Mary on the other side of the keyboard) as a modernization of an earlier internal tool. 30 unit tests pass, end-to-end CLI and daemon verified.
-
-See the repo's commit history or task list for the implementation path.
-
-## Support
-
-Built by [Codependent AI](https://codependentai.io).
-
-<a href="https://ko-fi.com/codependentai"><img src="https://img.shields.io/badge/Ko--fi-Support%20Us-ff5e5b?logo=ko-fi&logoColor=white" alt="Ko-fi" /></a>
+Built by [Nekyia Labs](https://nekyialabs.com).

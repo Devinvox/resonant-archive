@@ -19,7 +19,7 @@ Other approaches you thought about.
 - [ ] Touches the CLI (`resonant_archive/cli.py`)
 - [ ] Touches the chunker (`resonant_archive/chunker.py`)
 - [ ] Touches the store (`resonant_archive/store.py`)
-- [ ] Touches the daemon or MCP server
+- [ ] Touches the embed server or MCP server
 - [ ] New dependency
 - [ ] Documentation only
 

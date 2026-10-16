@@ -1,0 +1,77 @@
+# Public defaults for scripts/private_strip_lint.py: shapes that must never ship in this repository.
+#
+# This file is public, so it names nothing private: no person, host, port or path of anyone's own setup. The terms
+# that ARE private (names, hosts, ports, paths of a particular machine) live in a file of your own, outside the
+# repository, which the lint reads from PRIVATE_STRIP_TERMS_FILE (or --terms-file). See the docstring of the script
+# for that file's format.
+#
+#   words       whole words only (a letter, digit or underscore next to the match is not a hit)
+#   substrings  matched anywhere in a line
+#   patterns    named regular expressions, case-insensitive
+#   exclude     path globs (relative to the repo root, forward slashes) that are never scanned
+#   pattern_exclude  path globs the `patterns` below skip (a pattern may add its own `exclude`)
+#
+# Known false positives go in private_strip_allowlist.txt, each with a reason (the term is the pattern's name).
+
+words = []
+substrings = []
+
+exclude = [
+  ".git/*",
+  "*/node_modules/*",
+  "*.egg-info/*",
+  ".venv/*",
+  "venv/*",
+  "claude-code/chronicle/.claude-plugin/types/*",
+]
+
+# The shape rules below (and only those: private terms are checked everywhere) skip the files that hold invented
+# credentials on purpose: the redaction code and its tests. gitleaks covers real ones in CI.
+pattern_exclude = [
+  "resonant_archive/redact.py",
+  "claude-code/chronicle/hooks/register.ts",
+  "tests/redaction_cases.py",
+  "tests/synth.py",
+  "tests/test_redact_*.py",
+  "tests/test_importer_safety.py",
+  "tests/test_cli.py",
+  "tests/test_db.py",
+  "tests/test_reader_role.py",
+  "tests/test_private_strip_lint.py",
+  "tests/embed/*",
+  "claude-code/chronicle/tests/*",
+  "docs/PRIVACY.md",
+]
+
+# A real-looking home directory. /home/user, /home/you, /Users/<name> and friends are placeholders and pass.
+[[patterns]]
+name = "home path"
+regex = '(?:/home|/Users)/(?!(?:user|users|you|me|name|username|someone|tester|example|alice|bob|runner|\$|<|\{|\*|%|~)(?![A-Za-z0-9_]))[A-Za-z_][A-Za-z0-9_.-]*/'
+
+[[patterns]]
+name = "windows home path"
+regex = '[A-Za-z]:\\Users\\(?!(?:user|you|me|name|username|someone|example|<)(?![A-Za-z0-9_]))[A-Za-z_][A-Za-z0-9_. -]*\\'
+
+[[patterns]]
+name = "private key block"
+regex = '-----BEGIN [A-Z ]{0,40}PRIVATE KEY(?: BLOCK)?-----'
+
+[[patterns]]
+name = "aws access key"
+regex = '\b(?:AKIA|ASIA)[0-9A-Z]{16}\b'
+
+[[patterns]]
+name = "api key"
+regex = '\b(?:sk-(?:ant-|or-v1-|proj-)?[A-Za-z0-9_-]{20,}|sk_live_[A-Za-z0-9]{16,}|xai-[A-Za-z0-9_-]{16,}|gh[pousr]_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{40,}|glpat-[A-Za-z0-9_-]{20,}|npm_[A-Za-z0-9]{30,}|hf_[A-Za-z0-9]{30,}|xox[abprs]-[A-Za-z0-9-]{10,}|AIza[0-9A-Za-z_-]{35})'
+
+[[patterns]]
+name = "webhook url"
+regex = 'https://(?:hooks\.slack\.com/services/|(?:[a-z]+\.)?discord(?:app)?\.com/api/(?:v\d+/)?webhooks/)[A-Za-z0-9/_-]{12,}'
+
+[[patterns]]
+name = "url with a password"
+regex = '\b[a-z][a-z0-9+.-]{1,20}://[^:/\s@"\x27<>]+:(?!(?:password|pass|passwd|secret|changeme|change-me|xxxx*|\*+|\.\.\.|your|<|\$|\{|%|\[redacted)|\.\.\.)[^\s/@"\x27<>]{4,}@'
+
+[[patterns]]
+name = "bearer token"
+regex = '\bbearer\s+(?=[A-Za-z0-9._~+/=-]*\d)[A-Za-z0-9._~+/=-]{24,}'

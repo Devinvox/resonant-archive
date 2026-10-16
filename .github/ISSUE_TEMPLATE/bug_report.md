@@ -22,7 +22,7 @@ What should have happened instead.
 - Python version: (run `python --version`)
 - resonant-archive version: (run `resonant-archive --version`)
 - Install method: (`pip install`, `git clone + pip install -e .`, `uv`, other)
-- Embedding model: (default `all-MiniLM-L6-v2`, or custom)
+- Embedding model: (default `nomic-embed-text-v1.5`)
 
 **Command that failed**
 The exact command you ran, including flags and arguments.

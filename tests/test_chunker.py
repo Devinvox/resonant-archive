@@ -1,7 +1,7 @@
 """Tests for resonant_archive.chunker.
 
-Copyright (C) 2025-2026 Codependent AI
-Licensed under the Codependent AI Source-Available License. See LICENSE.
+Copyright 2025-2026 Nekyia Labs
+SPDX-License-Identifier: Apache-2.0
 """
 
 from __future__ import annotations

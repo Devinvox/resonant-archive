@@ -7,6 +7,67 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+
+- **Redaction covers far more shapes**: Stripe, npm, Hugging Face, GitLab, SendGrid, AWS session keys and secret-key assignments, Azure `AccountKey`, `Authorization: Token|Basic|Bearer`, `curl -u`, `sshpass -p`, `mysql -p`, any `scheme://user:password@host`, Slack and Discord webhooks, Discord bot tokens, Twilio, PGP key blocks, `name: value` assignments in any case, "password is X" prose, and long mixed-case tokens. The chronicle mod's copy of the patterns is kept equivalent.
+- **Private-key redaction is linear** (a 500 KB input of `BEGIN` lines took over a minute; it is now instant).
+- **`init` creates a SELECT-only `archive_reader` login** and saves `readonly_dsn`; the MCP server and `recall` use it; `doctor` warns when it is unset or is the owner's login.
+- `init --docker` keeps `.env` in the data folder (not the current directory), replaces a placeholder or short password, and tightens the mode of a kept file to 0600.
+- The embedder verifies all four model files before loading, with a cached marker keyed on modification time and size.
+- Importers redact every stored string (not only the text), redact before cutting, withhold the results of secret-bearing tool calls, skip symlinks, files outside the root and oversize files and lines, and survive deeply nested JSON.
+- The embed server refuses non-loopback `Host` headers and non-JSON POSTs, and times out stalled clients.
+- `import --rebuild` removes only rows written by the same importer under the same label (migration 0002 adds `importer`).
+- **`import --rebuild` is narrower still** (migration 0003 adds `unit_key`): it removes only rows that belong to a unit it re-read in that run and that the re-read no longer produces. Units it did not read (a project filter, a skipped symlink, an oversize or purged file) are never touched; `--rebuild` with `--project` is refused; any skipped file, failed unit or lost line stops the removal. It prints the count and removes only with `--yes` (or an answer at the prompt); `--dry-run` only reports.
+- **A transcript cannot overwrite another source's row by reusing its id**: an upsert updates a row only when the stored `source` and `importer` match; a clash is skipped and counted.
+- **A tool call that reads a secret-bearing source keeps only the tool name and the file (or program) in its stored input**, never `content`, `old_string`, `new_string`, an `echo ... >> .env` value or a heredoc body (Python importer and the chronicle mod). The list of secret files and commands is wider (`.env*`, `.npmrc`, `.netrc`, `.git-credentials`, `.docker/config.json`, `.kube/config`, `secrets.*`, key stores, `terraform.tfstate*`, `/proc/*/environ`, `id_*`; `exec env`, `VAR=x env`, `bash -c env`, `docker compose config`, `systemctl show`, `ssh-add -L`, ...), and a `Grep`/`Glob` whose pattern or path names a secret has its result withheld. Best effort, said so in the docs.
+- Redaction: `--db-pass=` and any `--*-password` flag, `~/.pgpass` lines, short values (4+ characters) after an explicit `password` / `passwd` / `pwd` key; the long-token rule now starts at 40 characters (fewer false positives in code). `redact_dsn` hides `sslpassword=`.
+- The private-strip lint exits 2 when the terms file yields no rules or holds an empty rule, and prints only `path:line` when `CI=true`.
+- `doctor` warns when the read-only role can `CREATE` in schema `public`; [docs/SCHEMA.md](docs/SCHEMA.md) gives the `REVOKE` and explains that `CONNECT` is cluster-wide.
+- CI: every job has a time limit, the wheel check lists all migrations, `.gitleaks.toml` allowlists the synthetic fixtures by file name.
+- CI actions, the compose image and the Claude Code npm release are pinned. The private-strip lint no longer carries a denylist: private terms are read from `PRIVATE_STRIP_TERMS_FILE`.
+
+## [2.0.0] - 2026-10-16
+
+A rewrite. The story: compaction made more bearable, with an archive as the safety net.
+
+### Added
+
+- **The chronicle mod** (`claude-code/chronicle/`), a Claude Code mod:
+  - split compaction: the older part is summarised by your AI in its own voice (`compaction.voice`, `compaction.steer`), keeping exact identifiers, decisions and open threads; the recent stretch stays word for word
+  - `/squish [focus]`, `/squish status`, `/squish auto on|off`
+  - a context meter in your prompts, flagging at 75% and 90%
+  - a redacted, append-only mirror of every row on disk, and a `recall` tool over it
+  - optional background memories (off by default; they spend model calls)
+- **Postgres + pgvector archive**: exact word search (tsvector, pg_trgm), vector search, exact-string anchors, rank-fused.
+- **Local embeddings**: `nomic-embed-text-v1.5`, fp32 ONNX, pinned revision and SHA-256 sums, loopback-only server, no egress after the download.
+- **Importers**: `claude_code`, `chronicle_mirror`, `nexus_markdown`, `markdown_folder`, and a plugin entry-point group (`resonant_archive.importers`). Incremental by default.
+- **Redaction** of credentials before anything is stored, plus `--known-secrets` and `--json-config`.
+- **MCP tools**: `search`, `around`, `overview`, `associate`, `stats`, and `drill` (only when chronicle memories exist).
+- **CLI**: `init` (`--docker`, `--up`, `--dsn`), `doctor` (`--fix`), `models fetch`, `import`, `importers`, `embed`, `recall`, `migrate-v01`.
+- Docs: `COMPACTION`, `PRIVACY`, `EMBEDDER`, `DESIGN`, `MIGRATING-FROM-0.1`, `SCHEMA`, `MIRROR-FORMAT`, `RECALL-CONTRACT`.
+
+### Changed (breaking)
+
+- **Needs Postgres 15+** with `vector` and `pg_trgm`. `resonant-archive init --docker --up` brings one up.
+- Chroma and MiniLM are gone. Vectors are 768-dimension nomic embeddings; v0.1 indexes can't be converted, so re-import and re-embed (see `docs/MIGRATING-FROM-0.1.md`).
+- `resonant-archive serve` now runs the local embed server, not a search API. The MCP server needs no daemon.
+- Python 3.11 or newer (the 3.12 cap is gone; no torch).
+- Namespaces are the `source` label. `--namespace` still works as an alias of `--source`.
+- `archive_search` and `archive_stats` remain as aliases for one release, then they go.
+- Linux and macOS. Windows is not supported yet.
+- Brand and links: Nekyia Labs.
+
+### Removed
+
+- The FastAPI daemon, the Chroma store, `sentence-transformers`/torch, the double-click launcher scripts, and the v0.1 guides (`START_HERE`, `SETUP_GUIDE`, `USAGE_GUIDE`, `QUICK_REFERENCE`, `TROUBLESHOOTING`, `CLOUD_IMPORT`). Their content now lives in the README and `docs/`.
+
+### Known gaps
+
+- No direct importers for raw ChatGPT and claude.ai `conversations.json` exports yet. Use the Nexus AI Chat Importer and `nexus_markdown`.
+- The mod depends on Claude Code hooks, an early-access feature.
+- Embedding timings on a CPU have not been measured and published.
+- Licence: Apache-2.0.
+
 ## [0.1.0] - 2026-04-09
 
 Initial public release. Modernized from an earlier internal tool (`vault-archive-product`) that was built, shelved during a cloud migration, and revived for this release.
@@ -40,7 +101,8 @@ Initial public release. Modernized from an earlier internal tool (`vault-archive
 
 ### Licensed under
 
-[Codependent AI Source-Available License](LICENSE) — free for personal, educational, and non-commercial use with attribution. Commercial use requires a license.
+[Apache License 2.0](LICENSE). Earlier releases (0.1.x) were under the Codependent AI Source-Available License; 2.0.0 and later are Apache-2.0.
 
-[Unreleased]: https://github.com/nekyialabs/resonant-archive/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/nekyialabs/resonant-archive/compare/v2.0.0...HEAD
+[2.0.0]: https://github.com/nekyialabs/resonant-archive/compare/v0.1.0...v2.0.0
 [0.1.0]: https://github.com/nekyialabs/resonant-archive/releases/tag/v0.1.0

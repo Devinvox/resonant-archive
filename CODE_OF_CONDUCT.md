@@ -25,7 +25,7 @@ This applies to GitHub Issues, Discussions, Pull Requests, commit messages, and 
 
 ## Enforcement
 
-Violations can be reported via DM on [X (@codependent_ai)](https://x.com/codependent_ai) or through the [Telegram channel](https://t.me/+xSE1P_qFPgU4NDhk). Reports will be reviewed and acted on. Responses may include warnings, temporary bans, or permanent bans depending on severity.
+Violations can be reported privately through the Security tab of [nekyialabs/resonant-archive](https://github.com/nekyialabs/resonant-archive) ("Report a vulnerability"), marked as a conduct report. Reports will be reviewed and acted on. Responses may include warnings, temporary bans, or permanent bans depending on severity.
 
 ## Attribution
 

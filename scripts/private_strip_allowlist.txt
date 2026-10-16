@@ -1,0 +1,11 @@
+# Allowlist for scripts/private_strip_lint.py. One entry per line, fields separated by " | ":
+#
+#   <path glob> | <denylist term> | <regex the offending line must match, or * for any line> | <why it is fine>
+#
+# The term is matched case-insensitively against the denylist entry that fired. Blank lines and lines starting with
+# "#" are ignored. Keep this file short: each line is a place where a private name is deliberately allowed.
+#
+# Example:
+#   docs/CHANGELOG.md | acme | Acme Corp's public tool | names an unrelated third-party tool
+
+.github/workflows/ci.yml | url with a password | RESONANT_ARCHIVE_TEST_DSN | the throwaway CI Postgres service, a fixed password on a container that lives for one job

@@ -1,0 +1,5 @@
+# Your own settings. Only chronicle.example.json is committed.
+chronicle.json
+# Written by Claude Code itself when it loads the mod.
+.claude-plugin/types/
+*.log

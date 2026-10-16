@@ -1,16 +1,17 @@
 [build-system]
-requires = ["setuptools>=68"]
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "resonant-archive"
-version = "0.1.0"
-description = "Local-first retrieval tool for AI conversation archives and arbitrary text corpora. Part of the Resonant ecosystem."
+version = "2.0.0"
+description = "Make compaction bearable: a local, searchable archive of your AI conversations (Postgres, pgvector, local embeddings) plus a Claude Code mod for compaction."
 readme = "README.md"
-requires-python = ">=3.11,<3.13"
-license = { file = "LICENSE" }
+requires-python = ">=3.11"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
 authors = [
-  { name = "Codependent AI" },
+  { name = "Nekyia Labs" },
 ]
 keywords = [
   "mcp",
@@ -19,6 +20,8 @@ keywords = [
   "claude",
   "archive",
   "semantic-search",
+  "postgres",
+  "pgvector",
   "resonant",
   "local-first",
 ]
@@ -26,25 +29,23 @@ classifiers = [
   "Development Status :: 3 - Alpha",
   "Intended Audience :: Developers",
   "Intended Audience :: End Users/Desktop",
-  "License :: Other/Proprietary License",
   "Operating System :: OS Independent",
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
   "Topic :: Scientific/Engineering :: Artificial Intelligence",
   "Topic :: Text Processing :: Indexing",
 ]
 dependencies = [
-  "sentence-transformers>=2.2.2",
-  "chromadb>=0.4.0",
-  "fastapi>=0.104.0",
-  "uvicorn>=0.24.0",
-  "mcp>=0.9.0",
-  "httpx>=0.25.0",
-  "pydantic>=2.0.0",
+  "psycopg[binary]>=3.1,<4",
+  "onnxruntime>=1.18",
+  "tokenizers>=0.19",
+  "numpy>=1.26",
+  "mcp>=1.2,<3",
   "python-frontmatter>=1.0.0",
   "typer>=0.12.0",
-  "rich>=13.0.0",
 ]
 
 [project.optional-dependencies]
@@ -57,7 +58,11 @@ dev = [
 resonant-archive = "resonant_archive.cli:main"
 
 [project.urls]
-Homepage = "https://codependentai.io"
+Homepage = "https://nekyialabs.com"
+Repository = "https://github.com/nekyialabs/resonant-archive"
+
+[tool.setuptools.package-data]
+resonant_archive = ["migrations/*.sql", "data/*"]
 
 [tool.setuptools.packages.find]
 where = ["."]
